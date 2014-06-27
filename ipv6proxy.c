@@ -10,11 +10,14 @@
 #include <errno.h>
 #include <sys/select.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include <stdio.h>
 
 int do_debug_print = 0;
 int do_short_print = 1;
+
+#define ETH_HLEN  14
 
 struct myinterface {
     const char* name;
@@ -30,6 +33,19 @@ struct myinterface {
 
 struct myinterface ifs[MAXIFS];
 int nifs;
+
+
+struct ip_map_entry {
+    unsigned char ip[16];
+    unsigned char mac[6];
+    int ifindex;
+};
+
+#define MAXMAPSIZE 4096
+
+struct ip_map_entry ip_map[MAXMAPSIZE];
+int ip_map_size = 0;
+
 
 // Add direct (without gateway) route to this address
 int ipv6_route_op(int op, int sock_fd, struct in6_addr *addr,  int prefix_len, int metric, int ifindex) {
@@ -86,6 +102,12 @@ int my_if_nametoindex(int sock_fd, const char* devname) {
     if(ret==-1) { perror("del_ipv6_route"); }
     */
 
+void printhex(unsigned char* buf, int n, FILE* f) {
+    int i;
+    for(i=0; i<n; ++i) {
+        fprintf(f, "%02X", (int)buf[i]);
+    }
+}
 
 // based on http://stackoverflow.com/a/14937171/266720
 void checksum (void * buffer, int bytes, uint32_t *total, int finalize) {
@@ -120,8 +142,8 @@ int if_allmulti(const char *ifname, unsigned int state, unsigned char *savemacad
 // end of in icmp6.c
 
 unsigned char buf[4096];
-    
-    
+
+
 int main(int argc, char* argv[]) {
     
     if(argc<2 || !strcmp(argv[1], "--help")) {
@@ -183,8 +205,13 @@ int main(int argc, char* argv[]) {
                     close(ifs[i].packetsock_fd);
                     ifs[i].packetsock_fd = -1;
                 }
+                
+                unsigned char *srcip = buf + ETH_HLEN+8;
+                unsigned char *dstip = buf + ETH_HLEN+8+16;
+                unsigned char *dstmac = buf ;
+                unsigned char *srcmac = buf + 6;
+                
                 if (do_short_print) {
-                    #define ETH_HLEN  14
                     unsigned char icmp_type = buf[ETH_HLEN+8+32];
                     const char* itn = NULL;
                     
@@ -221,10 +248,14 @@ int main(int argc, char* argv[]) {
                         case 155: itn="RPLConMsg"; break;
                     }
                     
+                    printhex(srcip,16,stdout); fprintf(stdout, ":"); printhex(srcmac,6,stdout);
+                    fprintf(stdout, " -> ");
+                    printhex(dstip,16,stdout); fprintf(stdout, ":"); printhex(dstmac,6,stdout);
+                    
                     if (itn) {
-                        fprintf(stdout, "%s(%s) ", ifs[i].name, itn);
+                        fprintf(stdout, " %s(%s)\n", ifs[i].name, itn);
                     } else {
-                        fprintf(stdout, "%s(%d) ", ifs[i].name, (int)icmp_type);
+                        fprintf(stdout, " %s(%d)\n", ifs[i].name, (int)icmp_type);
                     }
                     
                     fflush(stdout);
@@ -264,8 +295,67 @@ int main(int argc, char* argv[]) {
                     mac_mentions_indexes[nummentions++] = offset;
                 }
                 //fprintf(stderr, ".\n");
-                               
                 
+                if(! !memcmp(buf+0, ifs[i].macaddr, 6)) {
+                    // packet is being sent to somewhere
+                }
+                
+                
+                for (j=0; j<ip_map_size; ++j) {
+                    if(!memcmp(ip_map[j].ip, srcip, 16)) {
+                        if (! !memcmp(ip_map[j].mac, srcmac, 6)) {
+                            fprintf(stderr, "Updating mac for ");
+                                printhex(srcip, 16, stderr);
+                            fprintf(stderr, " to ");
+                                printhex(srcmac, 6, stderr);
+                            fprintf(stderr, "\n");
+                            memcpy(ip_map[j].mac, srcmac, 6);
+                        }
+                        if (ip_map[j].ifindex != i) {
+                            fprintf(stderr, "Updating network interface for ");
+                                printhex(srcip, 16, stderr);
+                            fprintf(stderr, " to %s\n", ifs[i].name);
+                            ip_map[j].ifindex = i;
+                        }
+                        break;
+                    }
+                }
+                if (j==ip_map_size) {
+                    // not found
+                    if (ip_map_size == MAXMAPSIZE) {
+                        // evict random entry
+                        j = rand() % MAXMAPSIZE;
+                        fprintf(stderr, "Evicting entry: ");
+                            printhex(ip_map[j].ip, 16, stderr);
+                        fprintf(stderr, " at %s mac ", ifs[ip_map[j].ifindex].name);
+                            printhex(ip_map[j].mac, 6, stderr);
+                        fprintf(stderr, "\n");
+                    } else {
+                        // add new entry
+                        ++ip_map_size;
+                    }
+                    
+                    ip_map[j].ifindex = i;
+                    memcpy(ip_map[j].mac, srcmac, 6);
+                    memcpy(ip_map[j].ip, srcip, 16);
+                    
+                    fprintf(stderr, "Adding entry: ");
+                        printhex(ip_map[j].ip, 16, stderr);
+                    fprintf(stderr, " at %s mac ", ifs[ip_map[j].ifindex].name);
+                        printhex(ip_map[j].mac, 6, stderr);
+                    fprintf(stderr, "\n");
+                }
+                
+                
+                // If we know the MAC for this destination IP, use it
+                for (j=0; j<ip_map_size; ++j) {
+                    if(!memcmp(ip_map[j].ip, dstip, 16)) {
+                        memcpy(dstmac, ip_map[j].mac, 6);
+                        break;
+                    }
+                }
+                
+                // TODO: send only to appropriate IF
                 for (j=0; j < nifs; ++j) {
                     if (i==j) continue;
                     if (ifs[j].packetsock_fd == -1) continue;
@@ -284,8 +374,8 @@ int main(int argc, char* argv[]) {
                         buf[ETH_HLEN+8+32 + 2] = 0;
                         buf[ETH_HLEN+8+32 + 3] = 0;
                         
-                        checksum(buf + ETH_HLEN+8   , 16,   &new_checksum, 0); // src IP
-                        checksum(buf + ETH_HLEN+8+16, 16,   &new_checksum, 0); // dst IP
+                        checksum(srcip   , 16,   &new_checksum, 0);
+                        checksum(dstip   , 16,   &new_checksum, 0);
                         int len = ret - (ETH_HLEN+8+32);
                         unsigned char lenbuf[4]; lenbuf[0]=0; lenbuf[1]=0; lenbuf[2]=len>>8; lenbuf[3]=len&0xFF;
                         checksum(lenbuf,               4,   &new_checksum, 0); // len
