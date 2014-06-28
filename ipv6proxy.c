@@ -11,13 +11,17 @@
 #include <sys/select.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 
 #include <stdio.h>
+
+#include "popen_arr.h"
 
 int do_debug_print = 0;
 int do_short_print = 1;
 
 #define ETH_HLEN  14
+
 
 struct myinterface {
     const char* name;
@@ -39,6 +43,7 @@ struct ip_map_entry {
     unsigned char ip[16];
     unsigned char mac[6];
     int ifindex;
+    int routeadded;
 };
 
 #define MAXMAPSIZE 4096
@@ -141,6 +146,24 @@ int get_rx(int sockpkt, unsigned char *msg, int maxsize);
 int if_allmulti(const char *ifname, unsigned int state, unsigned char *savemacaddrhere);
 // end of in icmp6.c
 
+void maybe_add_route(const unsigned char *srcip, const char *ifname) {
+    char ip6buf[16*2+16];
+    char* p = ip6buf;
+    int i;
+    for (i=0; i<16; ++i) {
+        if(i>0 && i%2==0) *p++ = ':';
+        sprintf(p, "%02x", srcip[i]);
+        p+=2;
+    }
+    *p=0;
+    
+    const char* argv[] = {"maybe_add_route", ip6buf, ifname, NULL};
+    int pid = popen2_arr_p(NULL, argv[0], argv, NULL, "");
+    int ret;
+    int status;
+    do { ret = waitpid(pid, &status, 0); } while(ret==-1 && (errno==EINTR || errno==EAGAIN));
+}
+
 unsigned char buf[4096];
 
 
@@ -155,8 +178,8 @@ int main(int argc, char* argv[]) {
     
     int ret;
     int i;
+    int fd_conf = socket( AF_INET6, SOCK_RAW, 58 /* ICMPv6 */ );
     for(i=0; i<nifs; ++i){
-        int fd_conf = socket( AF_INET6, SOCK_RAW, 58 /* ICMPv6 */ );
         if(fd_conf==-1) { perror("socket"); return 1; }
         
     
@@ -211,8 +234,8 @@ int main(int argc, char* argv[]) {
                 unsigned char *dstmac = buf ;
                 unsigned char *srcmac = buf + 6;
                 
+                unsigned char icmp_type = buf[ETH_HLEN+8+32];
                 if (do_short_print) {
-                    unsigned char icmp_type = buf[ETH_HLEN+8+32];
                     const char* itn = NULL;
                     
                     switch(icmp_type) {
@@ -317,6 +340,17 @@ int main(int argc, char* argv[]) {
                             fprintf(stderr, " to %s\n", ifs[i].name);
                             ip_map[j].ifindex = i;
                         }
+                        //if (icmp_type == 136) {
+                        /*    if (!ip_map[j].routeadded) {
+                                // Neighbour advertisment => add explicit route
+                                ip_map[j].routeadded = 1;
+                                fprintf(stderr, "Adding a route for ");
+                                    printhex(srcip, 16, stderr);
+                                int rret = add_ipv6_route(fd_conf, (struct in6_addr *)srcip, 128, 1, ifs[i].ifindex);
+                                if (rret==-1) fprintf(stderr, " (fail)");
+                                fprintf(stderr, "\n");
+                            }*/
+                        //}
                         break;
                     }
                 }
@@ -338,12 +372,21 @@ int main(int argc, char* argv[]) {
                     ip_map[j].ifindex = i;
                     memcpy(ip_map[j].mac, srcmac, 6);
                     memcpy(ip_map[j].ip, srcip, 16);
+                    ip_map[j].routeadded = 0;
                     
                     fprintf(stderr, "Adding entry: ");
                         printhex(ip_map[j].ip, 16, stderr);
                     fprintf(stderr, " at %s mac ", ifs[ip_map[j].ifindex].name);
                         printhex(ip_map[j].mac, 6, stderr);
+                    
+                    //if (icmp_type == 136) {
+                        // Neighbour advertisment => add explicit route
+                    //     add_ipv6_route(fd_conf, (struct in6_addr *)srcip, 128, 1, ifs[i].ifindex);
+                    //    ip_map[j].routeadded = 1;
+                     //   fprintf(stderr, " with a route");
+                    //}
                     fprintf(stderr, "\n");
+                    maybe_add_route(srcip, ifs[i].name);
                 }
                 
                 
