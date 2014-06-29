@@ -15,7 +15,7 @@
 
 #include <stdio.h>
 
-#include "popen_arr.h"
+#include "util.h"
 
 int do_debug_print = 0;
 int do_short_print = 1;
@@ -50,119 +50,6 @@ struct ip_map_entry {
 
 struct ip_map_entry ip_map[MAXMAPSIZE];
 int ip_map_size = 0;
-
-
-// Add direct (without gateway) route to this address
-int ipv6_route_op(int op, int sock_fd, struct in6_addr *addr,  int prefix_len, int metric, int ifindex) {
-    struct in6_rtmsg rt;
-    memset(&rt, 0, sizeof(rt));
-    
-    rt.rtmsg_dst_len = prefix_len;
-	rt.rtmsg_flags = ((prefix_len == 128) ? (RTF_UP|RTF_HOST) : RTF_UP);
-	rt.rtmsg_metric = metric;
-	
-	rt.rtmsg_ifindex = 0;
-	
-	rt.rtmsg_ifindex = ifindex;
-	
-	memcpy(&rt.rtmsg_dst, addr, sizeof(struct in6_addr));
-	
-	if (op==0) {
-	   return ioctl(sock_fd, SIOCADDRT, &rt);
-	} else 
-	if (op == 1) {
-	   return ioctl(sock_fd, SIOCDELRT, &rt);
-	} else return -1;
-};
-
-
-int del_ipv6_route(int sock_fd, struct in6_addr *addr,  int prefix_len, int metric, int ifindex) {
-    return ipv6_route_op(1, sock_fd, addr, prefix_len, metric, ifindex);
-}
-
-// Add direct (without gateway) route to this address
-int add_ipv6_route(int sock_fd, struct in6_addr *addr,  int prefix_len, int metric, int ifindex) {
-    return ipv6_route_op(0, sock_fd, addr, prefix_len, metric, ifindex);
-};
-
-int my_if_nametoindex(int sock_fd, const char* devname) {
-    struct ifreq ifr;
-	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, devname, sizeof(ifr.ifr_name));
-	if(ioctl(sock_fd, SIOCGIFINDEX, &ifr)==-1) {
-	    return -1;
-	}
-	return ifr.ifr_ifindex;
-}
-
-  /*
-    ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, devname, strlen(devname));
-    if(ret==-1) perror("setsockopt SO_BINDTODEVICE");*/
-    
-    /*
-    ret = add_ipv6_route(fd, (struct in6_addr*)"\xFD\x00\xFF\xFF\xFF\x00\x00\x00\x00\x00\x00\x00\x66\x66\x66\x66", 128, 1, ifindex);
-    if(ret==-1) { perror("add_ipv6_route"); }
-    
-    ret = del_ipv6_route(fd, (struct in6_addr*)"\xFD\x00\xFF\xFF\xFF\x00\x00\x00\x00\x00\x00\x00\x66\x66\x66\x66", 128, 1, ifindex);
-    if(ret==-1) { perror("del_ipv6_route"); }
-    */
-
-void printhex(unsigned char* buf, int n, FILE* f) {
-    int i;
-    for(i=0; i<n; ++i) {
-        fprintf(f, "%02X", (int)buf[i]);
-    }
-}
-
-// based on http://stackoverflow.com/a/14937171/266720
-void checksum (void * buffer, int bytes, uint32_t *total, int finalize) {
-   uint16_t * ptr;
-   int        words;
-
-   ptr   = (uint16_t *) buffer;
-   words = (bytes + 1) / 2; // +1 & truncation on / handles any odd byte at end
-
-   /*
-    *   As we're using a 32 bit int to calculate 16 bit checksum
-    *   we can accumulate carries in top half of DWORD and fold them in later
-    */
-   while (words--) *total += ntohs(*ptr++);
-
-   if (finalize) {
-       /*
-        *   Fold in any carries
-        *   - the addition may cause another carry so we loop
-        */
-       while (*total & 0xffff0000) *total = (*total >> 16) + (*total & 0xffff);
-       *total = *total ^ 0xffff;
-   }
-}
-// yourpkt->checksum = ~(checksum (buff, length));
-
-// in icmp6.c
-int open_packet_socket(int ifIndex);
-int open_icmpv6_socket(int maxHops);
-int get_rx(int sockpkt, unsigned char *msg, int maxsize);
-int if_allmulti(const char *ifname, unsigned int state, unsigned char *savemacaddrhere);
-// end of in icmp6.c
-
-void maybe_add_route(const unsigned char *srcip, const char *ifname) {
-    char ip6buf[16*2+16];
-    char* p = ip6buf;
-    int i;
-    for (i=0; i<16; ++i) {
-        if(i>0 && i%2==0) *p++ = ':';
-        sprintf(p, "%02x", srcip[i]);
-        p+=2;
-    }
-    *p=0;
-    
-    const char* argv[] = {"maybe_add_route", ip6buf, ifname, NULL};
-    int pid = popen2_arr_p(NULL, argv[0], argv, NULL, "");
-    int ret;
-    int status;
-    do { ret = waitpid(pid, &status, 0); } while(ret==-1 && (errno==EINTR || errno==EAGAIN));
-}
 
 unsigned char buf[4096];
 
