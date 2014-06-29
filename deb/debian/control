@@ -1,0 +1,11 @@
+Source: ipv6proxy
+Section: utils
+Priority: extra
+Maintainer: Vitaly _Vi Shukela <vi0oss@gmail.com>
+Standards-Version: 3.9.3
+Homepage: https://github.com/vi/ipv6proxy.git
+
+Package: ipv6proxy
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libc6
+Description: ipv6proxy - IPv6 network NDP proxy router; `/64` network extender
