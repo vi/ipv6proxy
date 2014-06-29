@@ -167,10 +167,9 @@ int main(int argc, char* argv[]) {
                             memcpy(ipmap_entry->mac, srcmac, 6);
                         }
                         
-                        maybe_del_route(srcip, interfaces[ipmap_entry->ifindex].name);
-                        maybe_add_route(srcip, current_interface->name);
-                        
                         if (ipmap_entry->ifindex != i) {
+                            maybe_del_route(srcip, interfaces[ipmap_entry->ifindex].name);
+                            maybe_add_route(srcip, current_interface->name);
                             if (strchr(debug_mode, 'm')) {
                                 fprintf(stderr, "Updating network interface for ");
                                     printhex(srcip, 16, stderr);
