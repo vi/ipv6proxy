@@ -73,7 +73,7 @@ int my_if_nametoindex(int sock_fd, const char* devname) {
 	return ifr.ifr_ifindex;
 }
 
-void printhex(unsigned char* buf, int n, FILE* f) {
+void printhex(const unsigned char* buf, int n, FILE* f) {
     int i;
     for(i=0; i<n; ++i) {
         fprintf(f, "%02X", (int)buf[i]);
@@ -128,6 +128,78 @@ void maybe_add_route(const unsigned char *srcip, const char *ifname) {
 }
 void maybe_del_route(const unsigned char *srcip, const char *ifname) {
     return call_route_script("maybe_del_route", srcip, ifname);
+}
+
+
+
+void debug_print(const char* debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name) {
+    unsigned char icmp_type = buf[ETH_HLEN+8+32];
+    const unsigned char *srcip = buf + ETH_HLEN+8;
+    const unsigned char *dstip = buf + ETH_HLEN+8+16;
+    const unsigned char *dstmac = buf ;
+    const unsigned char *srcmac = buf + 6;
+    if (strchr(debug_print_mode, 's')) {
+        const char* itn = NULL;
+        
+        switch(icmp_type) {
+            case 1: itn="DestUnr"; break;
+            case 2: itn="PTooBig"; break;
+            case 3: itn="TExceed"; break;
+            case 4: itn="ParamProblem"; break;
+            case 128: itn="EchoReq"; break;
+            case 129: itn="EchoRepl"; break;
+            case 130: itn="MLQuery"; break;
+            case 131: itn="MLReport"; break;
+            case 132: itn="MLDone"; break;
+            case 133: itn="RouSolic"; break;
+            case 134: itn="RouAdv"; break;
+            case 135: itn="NeigSol"; break;
+            case 136: itn="NeighAdv"; break;
+            case 137: itn="Redirect"; break;
+            case 138: itn="RouterRenumbering"; break;
+            case 139: itn="IcmpNIQ"; break;
+            case 140: itn="IcmpNIR"; break;
+            case 141: itn="InvNeighSol"; break;
+            case 142: itn="InvNeighAdv"; break;
+            case 143: itn="MLDv2report"; break;
+            case 144: itn="HAADRq"; break;
+            case 145: itn="HAADReply"; break;
+            case 146: itn="MobilePrefixSol"; break;
+            case 147: itn="MobilePrefixAdv"; break;
+            case 148: itn="CertPathSol"; break;
+            case 149: itn="CertPathAdv"; break;
+            case 151: itn="MCRouterAdv"; break;
+            case 152: itn="MCRouterSol"; break;
+            case 153: itn="MCRouterTerm"; break;
+            case 155: itn="RPLConMsg"; break;
+        }
+        
+        printhex(srcip,16,stdout); fprintf(stdout, ":"); printhex(srcmac,6,stdout);
+        fprintf(stdout, " -> ");
+        printhex(dstip,16,stdout); fprintf(stdout, ":"); printhex(dstmac,6,stdout);
+        
+        if (itn) {
+            fprintf(stdout, " %s(%s)\n", current_interface_name, itn);
+        } else {
+            fprintf(stdout, " %s(%d)\n", current_interface_name, (int)icmp_type);
+        }
+        
+        fflush(stdout);
+    }
+    if (strchr(debug_print_mode, 'd')) {
+        fprintf(stdout, "%12s ",current_interface_name);
+        int i;
+        for(i=0; i<received_length; ++i) {
+            if (i==6 || i==12 || 
+                i==ETH_HLEN || i==ETH_HLEN+6 ||
+                i==ETH_HLEN+7 || i==ETH_HLEN+8 ||
+                i==ETH_HLEN+8+16 || i==ETH_HLEN+8+32) fprintf(stdout, " ");
+            fprintf(stdout, "%02x", buf[i]);
+        }
+        fprintf(stdout, "\n");
+        fflush(stdout);
+        
+    }
 }
 
 

@@ -3,7 +3,7 @@
 
 int my_if_nametoindex(int sock_fd, const char* devname);
 
-void printhex(unsigned char* buf, int n, FILE* f);
+void printhex(const unsigned char* buf, int n, FILE* f);
 
 void checksum (void * buffer, int bytes, uint32_t *total, int finalize);
 
@@ -20,3 +20,5 @@ void maybe_del_route(const unsigned char *srcip, const char *ifname);
 // Add direct (without gateway) route to this address
 int add_ipv6_route(int sock_fd, struct in6_addr *addr,  int prefix_len, int metric, int ifindex);
 int del_ipv6_route(int sock_fd, struct in6_addr *addr,  int prefix_len, int metric, int ifindex);
+
+void debug_print(const char* debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name);
