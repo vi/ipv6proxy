@@ -37,9 +37,13 @@ enum myflags_t {
 };
 extern enum myflags_t options;
 extern enum debugmode_t debug_mode;
+extern const char* procsysnetipv6conf;
 
 void debug_print(enum debugmode_t debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name);
 
+int read_number_from_proc(const char* ifname, const char* knob);
+// -1 - failure, 0 -- success
+int write_number_to_proc(const char* ifname, const char* knob, int value);
 
 // Fix and/or verify IPCMv6 checksum; IPv6 packet is expected to be encapsupated in simple Ethernet frame
 // -1 is fail, 0 is OK

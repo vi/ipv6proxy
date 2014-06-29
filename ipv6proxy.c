@@ -29,6 +29,8 @@ struct myinterface {
     unsigned char macaddr[6];
     int packetsock_fd;
     int prevallmulti;
+    int prevforward;
+    int prevacceptra;
 };
 
 
@@ -56,7 +58,7 @@ enum debugmode_t debug_mode = 0;
 
 volatile int exit_flag = 0;
 
-const char* procsysnetipv6conf = "/proc/sys/net/ipv6/conf/";
+const char* procsysnetipv6conf = "/proc/sys/net/ipv6/conf";
 
 static void signal_handler() {
     exit_flag = 1;
@@ -75,7 +77,7 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "        M - don't set allmulticast\n");
         fprintf(stderr, "        R - don't add or delete routes\n");
         fprintf(stderr, "        F - don't set up forwarding=1\n");
-        fprintf(stderr, "        A - don't automatically set up accert_ra=2 instead of 1\n");
+        fprintf(stderr, "        A - don't automatically set up accept_ra=2 instead of 1\n");
         fprintf(stderr, "        N - don't restore anything back on exit\n");
         return 1;
     }
@@ -122,7 +124,30 @@ int main(int argc, char* argv[]) {
         
         ii->name = devname;
         ii->ifindex = ifindex;
+        
+        ii->prevforward = read_number_from_proc(devname, "forwarding");
+        ii->prevacceptra = read_number_from_proc(devname, "accept_ra");
+        
+        if (ii->prevforward == -1 || ii->prevacceptra == -1) {
+            fprintf(stderr, "Error getting interface parameters from /proc\n");
+            return 1;
+        }
+        
+        if (! (options & NOACCEPTRA) && ii->prevacceptra == 1) {
+            if(write_number_to_proc(devname, "accept_ra", 2) == -1) {
+                fprintf(stderr, "Failed to set up accept_ra on the interface\n");
+                return 1;
+            }
+        }
+        if (! (options & NOFORWARDING) && ii->prevforward == 0) {
+            if(write_number_to_proc(devname, "forwarding", 1) == -1) {
+                fprintf(stderr, "Failed to set up forwarding on the interface\n");
+                return 1;
+            }
+        }
+        
         ii->prevallmulti = setup_interface(devname, 1, ii->macaddr);
+        
         ii->packetsock_fd = open_packet_socket(ifindex);
         if(ii->packetsock_fd < 0) return 1;
     }
@@ -322,7 +347,16 @@ int main(int argc, char* argv[]) {
     for(i=0; i<n_interfaces; ++i){
         struct myinterface *ii = &interfaces[i];
         (void)setup_interface(ii->name, ii->prevallmulti, ii->macaddr);
+        
+        // maybe restore forwarding value
+        if (! (options & NOFORWARDING) && ii->prevforward != 1) {
+            write_number_to_proc(ii->name, "forwarding", ii->prevforward);
+        }
+        // maybe restore accept_ra value
+        if (! (options & NOACCEPTRA) && ii->prevacceptra == 1) {
+            write_number_to_proc(ii->name, "accept_ra", ii->prevacceptra);
+        }
     }
-
+    
     return 0;
 }

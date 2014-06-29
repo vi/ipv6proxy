@@ -319,6 +319,28 @@ int open_packet_socket(int ifIndex)
 }
 
 
+int read_number_from_proc(const char* ifname, const char* knob) {
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s/%s", procsysnetipv6conf, ifname, knob);
+    FILE* f = fopen(path, "r");
+    if(!f) return -1;
+    int x = -1;
+    fscanf(f, "%d", &x);
+    fclose(f);
+    return x;
+}
+
+int write_number_to_proc(const char* ifname, const char* knob, int value) {
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s/%s", procsysnetipv6conf, ifname, knob);
+    FILE* f = fopen(path, "w");
+    if(!f) return -1;
+    if (debug_mode & D_INIT) fprintf(stderr, "+ echo %d > %s\n", value, path);
+    fprintf(f, "%d\n", value);
+    fclose(f);
+    return 0;
+}
+
 /*****************************************************************************
  * Inputs:
  *  ifname is interface name
