@@ -14,10 +14,10 @@ Usage
 
 Imagine you have working `eth0` with auto-configured IPv6. You want to extend it to `wlan0`.
 
-    PATH=$PATH:/path/to/ipv6proxy IPV6PROXY_DEBUG=ism ipv6proxy eth0 wlan0 
+    IPV6PROXY_DEBUG=ism ./ipv6proxy eth0 wlan0 
 
 This command with start ipv6proxy in default mode (it will set up `forwarding` and `accept_ra` values if necessary).
-PATH will allow ipv6proxy to find its scripts for adding or removing routes. Upon terminationg ipv6proxy tries to revert everything back.
+Upon terminationg ipv6proxy tries to revert everything back.
 
 IPV6PROXY_DEBUG is only for making it to print more messages.
 
@@ -65,5 +65,5 @@ The project is eary and hacky. There are following known problems:
 
 * Ping replies get duplicated;
 * Source MAC address substitution code is hacky. Some special source MAC addresses may fail (it does search&replace MAC mentions though the whole packet and fix up ICMPv6 checksum afterwards).
-* Usage of external script to manage routes;
-* Not scalable approach in general.
+* Usage of shell and /bin/ip to manage routes instead of AF_NETLINK;
+* Not scalable approach in general - by design.
