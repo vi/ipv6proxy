@@ -97,8 +97,8 @@ void printipv6(const unsigned char* ipv6, FILE* f) {
 }
 
 // based on http://stackoverflow.com/a/14937171/266720
-void checksum (void * buffer, int bytes, uint32_t *total, int finalize) {
-   uint16_t * ptr;
+void checksum (const void * buffer, int bytes, uint32_t *total, int finalize) {
+   const uint16_t * ptr;
    int        words;
 
    ptr   = (uint16_t *) buffer;
@@ -140,14 +140,15 @@ void maybe_del_route(const unsigned char *srcip, const char *ifname) {
     return call_route_script("maybe_del_route", srcip, ifname);
 }
 
-
+#define DECALRE_srcip_dstip_srcmac_dstmac_FROM_buf \
+    const unsigned char *srcip = buf + ETH_HLEN+8;    (void)srcip; \
+    const unsigned char *dstip = buf + ETH_HLEN+8+16; (void)dstip;\
+    const unsigned char *dstmac = buf ;               (void)dstmac; \
+    const unsigned char *srcmac = buf + 6;            (void)srcmac;
 
 void debug_print(const char* debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name) {
     unsigned char icmp_type = buf[ETH_HLEN+8+32];
-    const unsigned char *srcip = buf + ETH_HLEN+8;
-    const unsigned char *dstip = buf + ETH_HLEN+8+16;
-    const unsigned char *dstmac = buf ;
-    const unsigned char *srcmac = buf + 6;
+    DECALRE_srcip_dstip_srcmac_dstmac_FROM_buf;
     if (strchr(debug_print_mode, 's')) {
         const char* itn = NULL;
         
@@ -212,6 +213,27 @@ void debug_print(const char* debug_print_mode, unsigned const char *buf, int rec
     }
 }
 
+void fixup_icmpv6_checksum(unsigned char *buf, int totallen) {
+    DECALRE_srcip_dstip_srcmac_dstmac_FROM_buf;
+    
+    //unsigned long old_checksum = buf[ETH_HLEN+8+32 + 2]*256 + buf[ETH_HLEN+8+32 + 3];
+    uint32_t new_checksum = 0;
+    buf[ETH_HLEN+8+32 + 2] = 0;
+    buf[ETH_HLEN+8+32 + 3] = 0;
+    
+    checksum(srcip   , 16,   &new_checksum, 0);
+    checksum(dstip   , 16,   &new_checksum, 0);
+    int len = totallen  - (ETH_HLEN+8+32);
+    unsigned char lenbuf[4]; lenbuf[0]=0; lenbuf[1]=0; lenbuf[2]=len>>8; lenbuf[3]=len&0xFF;
+    checksum(lenbuf,               4,   &new_checksum, 0); // len
+    checksum("\x00\x00\x00\x3A",   4,   &new_checksum, 0); // next header type
+    checksum(buf + ETH_HLEN+8+32,  len, &new_checksum, 1);
+    
+    buf[ETH_HLEN+8+32 + 2] = new_checksum>>8;
+    buf[ETH_HLEN+8+32 + 3] = new_checksum&0xFF;
+    
+    //printf("oc=%04lx nc=%04x ",old_checksum, new_checksum);
+}
 
 /*****************************************************************************
  * open_packet_socket

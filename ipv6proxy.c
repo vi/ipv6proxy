@@ -238,27 +238,9 @@ int main(int argc, char* argv[]) {
                             memcpy(buf+mac_mentions_indexes[k], interfaces[j].macaddr, 6);
                         }
                     }
-                    // fixup the checksum
-                    {
-                        // FIXME: checksum is to be also checked
-                        //unsigned long old_checksum = buf[ETH_HLEN+8+32 + 2]*256 + buf[ETH_HLEN+8+32 + 3];
-                        uint32_t new_checksum = 0;
-                        buf[ETH_HLEN+8+32 + 2] = 0;
-                        buf[ETH_HLEN+8+32 + 3] = 0;
-                        
-                        checksum(srcip   , 16,   &new_checksum, 0);
-                        checksum(dstip   , 16,   &new_checksum, 0);
-                        int len = received_length - (ETH_HLEN+8+32);
-                        unsigned char lenbuf[4]; lenbuf[0]=0; lenbuf[1]=0; lenbuf[2]=len>>8; lenbuf[3]=len&0xFF;
-                        checksum(lenbuf,               4,   &new_checksum, 0); // len
-                        checksum("\x00\x00\x00\x3A",   4,   &new_checksum, 0); // next header type
-                        checksum(buf + ETH_HLEN+8+32,  len, &new_checksum, 1);
-                        
-                        buf[ETH_HLEN+8+32 + 2] = new_checksum>>8;
-                        buf[ETH_HLEN+8+32 + 3] = new_checksum&0xFF;
-                        
-                        //printf("oc=%04lx nc=%04x ",old_checksum, new_checksum);
-                    }
+                    
+                    fixup_icmpv6_checksum(buf, received_length);
+                    
                     
                     again:
                     ret = send(interfaces[j].packetsock_fd, buf, received_length, 0);
