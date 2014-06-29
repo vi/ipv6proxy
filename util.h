@@ -19,7 +19,16 @@ void maybe_del_route(const unsigned char *srcip, const char *ifname);
 int add_ipv6_route(int sock_fd, struct in6_addr *addr,  int prefix_len, int metric, int ifindex);
 int del_ipv6_route(int sock_fd, struct in6_addr *addr,  int prefix_len, int metric, int ifindex);
 
-void debug_print(const char* debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name);
+
+enum debugmode_t {
+    D_PACKET_DUMPS = 1,
+    D_SHORT= 2,
+    D_IP_MAP = 4,
+    D_INIT = 8
+};
+
+
+void debug_print(enum debugmode_t debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name);
 
 
 // Fix and/or verify IPCMv6 checksum; IPv6 packet is expected to be encapsupated in simple Ethernet frame

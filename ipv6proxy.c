@@ -52,7 +52,7 @@ int n_ip_map = 0;
 
 unsigned char buf[4096];
 
-const char *debug_mode = "";
+enum debugmode_t debug_mode = 0;
 
 volatile int exit_flag = 0;
 
@@ -70,7 +70,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    if(getenv("IPV6PROXY_DEBUG")) debug_mode=getenv("IPV6PROXY_DEBUG");
+    if(getenv("IPV6PROXY_DEBUG")) {
+        const char* o = getenv("IPV6PROXY_DEBUG");
+        if(strchr(o, 'd')) debug_mode |= D_PACKET_DUMPS;
+        if(strchr(o, 's')) debug_mode |= D_SHORT;
+        if(strchr(o, 'm')) debug_mode |= D_IP_MAP;
+        if(strchr(o, 'i')) debug_mode |= D_INIT;
+    }
     
     {
         struct sigaction sa = {{&signal_handler}};
@@ -181,7 +187,7 @@ int main(int argc, char* argv[]) {
                     struct ip_map_entry *ipmap_entry = &ip_map[j];
                     if(!memcmp(ipmap_entry->ip, srcip, 16)) {
                         if (! !memcmp(ipmap_entry->mac, srcmac, 6)) {
-                            if (strchr(debug_mode, 'm')) {
+                            if (debug_mode & D_IP_MAP) {
                                 fprintf(stderr, "Updating mac for ");
                                     printhex(srcip, 16, stderr);
                                 fprintf(stderr, " to ");
@@ -194,7 +200,7 @@ int main(int argc, char* argv[]) {
                         if (ipmap_entry->ifindex != i) {
                             maybe_del_route(srcip, interfaces[ipmap_entry->ifindex].name);
                             maybe_add_route(srcip, current_interface->name);
-                            if (strchr(debug_mode, 'm')) {
+                            if (debug_mode & D_IP_MAP) {
                                 fprintf(stderr, "Updating network interface for ");
                                     printhex(srcip, 16, stderr);
                                 fprintf(stderr, " to %s\n", current_interface->name);
@@ -211,7 +217,7 @@ int main(int argc, char* argv[]) {
                         j = rand() % MAX_IPMAP_SIZE;
                         struct ip_map_entry *evicted_ipmap_entry = &ip_map[j];
                         
-                        if (strchr(debug_mode, 'm')) {
+                        if (debug_mode & D_IP_MAP) {
                             fprintf(stderr, "Evicting entry: ");
                                 printipv6(evicted_ipmap_entry->ip, stderr);
                             fprintf(stderr, " at %s mac ", interfaces[evicted_ipmap_entry->ifindex].name);
@@ -229,7 +235,7 @@ int main(int argc, char* argv[]) {
                     memcpy(new_ipmap_entry->mac, srcmac, 6);
                     memcpy(new_ipmap_entry->ip, srcip, 16);
                     
-                    if (strchr(debug_mode, 'm')) {
+                    if (debug_mode & D_IP_MAP) {
                         fprintf(stderr, "Added entry to map: ");
                             printipv6(new_ipmap_entry->ip, stderr);
                         fprintf(stderr, " at %s mac ", current_interface->name);

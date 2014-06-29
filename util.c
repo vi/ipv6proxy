@@ -146,10 +146,10 @@ void maybe_del_route(const unsigned char *srcip, const char *ifname) {
     const unsigned char *dstmac = buf ;               (void)dstmac; \
     const unsigned char *srcmac = buf + 6;            (void)srcmac;
 
-void debug_print(const char* debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name) {
+void debug_print(enum debugmode_t debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name) {
     unsigned char icmp_type = buf[ETH_HLEN+8+32];
     DECALRE_srcip_dstip_srcmac_dstmac_FROM_buf;
-    if (strchr(debug_print_mode, 's')) {
+    if (debug_print_mode & D_SHORT) {
         const char* itn = NULL;
         
         switch(icmp_type) {
@@ -197,7 +197,7 @@ void debug_print(const char* debug_print_mode, unsigned const char *buf, int rec
         
         fflush(stdout);
     }
-    if (strchr(debug_print_mode, 'd')) {
+    if (debug_print_mode & D_PACKET_DUMPS) {
         fprintf(stdout, "%12s ",current_interface_name);
         int i;
         for(i=0; i<received_length; ++i) {
