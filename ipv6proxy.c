@@ -56,17 +56,35 @@ enum debugmode_t debug_mode = 0;
 
 volatile int exit_flag = 0;
 
+const char* procsysnetipv6conf = "/proc/sys/net/ipv6/conf/";
+
 static void signal_handler() {
     exit_flag = 1;
 }
 
+enum myflags_t {
+    NOALLMUTLI = 1,
+    NOROUTES= 2,
+    NOFORWARDING = 4,
+    NOACCEPTRA = 8,
+    NORESTORE = 16
+};
+
+enum myflags_t options = 0;
 
 int main(int argc, char* argv[]) {
     
     if(argc<2 || !strcmp(argv[1], "--help")) {
         fprintf(stderr, "Usage: ipv6proxy eth0 wlan0 ...\n");
         fprintf(stderr, "Environtment variables\n");
-        fprintf(stderr, "    IPV6PROXY_DEBUG=[s][d][m] - output short debug info, packet dumps and ip_map operations respectively\n");
+        fprintf(stderr, "    IPV6PROXY_DEBUG=[s][d][m][i] - output short debug info, packet dumps, ip_map operations and init log respectively\n");
+        fprintf(stderr, "    IPV6PROXY_PROCROOT=/proc/sys/net/ipv6/conf/ - override /proc path\n");
+        fprintf(stderr, "    IPV6PROXY_OPTIONS=[M][R][F][A][N]\n");
+        fprintf(stderr, "        M - don't set allmulticast\n");
+        fprintf(stderr, "        R - don't add or delete routes\n");
+        fprintf(stderr, "        F - don't set up forwarding=1\n");
+        fprintf(stderr, "        A - don't automatically set up accert_ra=2 instead of 1\n");
+        fprintf(stderr, "        N - don't restore anything back on exit\n");
         return 1;
     }
     
@@ -76,6 +94,15 @@ int main(int argc, char* argv[]) {
         if(strchr(o, 's')) debug_mode |= D_SHORT;
         if(strchr(o, 'm')) debug_mode |= D_IP_MAP;
         if(strchr(o, 'i')) debug_mode |= D_INIT;
+    }
+    if(getenv("IPV6PROXY_PROCROOT")) procsysnetipv6conf=getenv("IPV6PROXY_PROCROOT");
+    if(getenv("IPV6PROXY_OPTIONS")) {
+        const char* o = getenv("IPV6PROXY_OPTIONS");
+        if(strchr(o, 'M')) options |= NOALLMUTLI;
+        if(strchr(o, 'R')) options |= NOROUTES;
+        if(strchr(o, 'F')) options |= NOFORWARDING;
+        if(strchr(o, 'A')) options |= NOACCEPTRA;
+        if(strchr(o, 'N')) options |= NORESTORE;
     }
     
     {
