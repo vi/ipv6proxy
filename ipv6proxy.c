@@ -44,7 +44,6 @@ struct ip_map_entry {
     unsigned char ip[16];
     unsigned char mac[6];
     int ifindex;
-    int routeadded;
 };
 
 
@@ -207,11 +206,6 @@ int main(int argc, char* argv[]) {
                 }
                 //fprintf(stderr, ".\n");
                 
-                if(! !memcmp(buf+0, interfaces[i].macaddr, 6)) {
-                    // packet is being sent to somewhere
-                }
-                
-                
                 for (j=0; j<n_ip_map; ++j) {
                     if(!memcmp(ip_map[j].ip, srcip, 16)) {
                         if (! !memcmp(ip_map[j].mac, srcmac, 6)) {
@@ -222,23 +216,17 @@ int main(int argc, char* argv[]) {
                             fprintf(stderr, "\n");
                             memcpy(ip_map[j].mac, srcmac, 6);
                         }
+                        
+                        // XXX
+                        // maybe_del_route(srcip, interfaces[ip_map[j].ifindex].name);
+                        maybe_add_route(srcip, interfaces[i].name);
+                        
                         if (ip_map[j].ifindex != i) {
                             fprintf(stderr, "Updating network interface for ");
                                 printhex(srcip, 16, stderr);
                             fprintf(stderr, " to %s\n", interfaces[i].name);
                             ip_map[j].ifindex = i;
                         }
-                        //if (icmp_type == 136) {
-                        /*    if (!ip_map[j].routeadded) {
-                                // Neighbour advertisment => add explicit route
-                                ip_map[j].routeadded = 1;
-                                fprintf(stderr, "Adding a route for ");
-                                    printhex(srcip, 16, stderr);
-                                int rret = add_ipv6_route(fd_conf, (struct in6_addr *)srcip, 128, 1, interfaces[i].ifindex);
-                                if (rret==-1) fprintf(stderr, " (fail)");
-                                fprintf(stderr, "\n");
-                            }*/
-                        //}
                         break;
                     }
                 }
@@ -260,19 +248,12 @@ int main(int argc, char* argv[]) {
                     ip_map[j].ifindex = i;
                     memcpy(ip_map[j].mac, srcmac, 6);
                     memcpy(ip_map[j].ip, srcip, 16);
-                    ip_map[j].routeadded = 0;
                     
                     fprintf(stderr, "Adding entry: ");
                         printhex(ip_map[j].ip, 16, stderr);
                     fprintf(stderr, " at %s mac ", interfaces[ip_map[j].ifindex].name);
                         printhex(ip_map[j].mac, 6, stderr);
                     
-                    //if (icmp_type == 136) {
-                        // Neighbour advertisment => add explicit route
-                    //     add_ipv6_route(fd_conf, (struct in6_addr *)srcip, 128, 1, interfaces[i].ifindex);
-                    //    ip_map[j].routeadded = 1;
-                     //   fprintf(stderr, " with a route");
-                    //}
                     fprintf(stderr, "\n");
                     maybe_add_route(srcip, interfaces[i].name);
                 }
@@ -285,8 +266,9 @@ int main(int argc, char* argv[]) {
                         break;
                     }
                 }
+                // if not, just preserver original destination MAC
                 
-                // TODO: send only to appropriate IF
+                // Send the packet everywhere (except of originating interface), just to be sure. We are not scalable anyway.
                 for (j=0; j < n_interfaces; ++j) {
                     if (i==j) continue;
                     if (interfaces[j].packetsock_fd == -1) continue;
@@ -300,6 +282,7 @@ int main(int argc, char* argv[]) {
                     }
                     // fixup the checksum
                     {
+                        // FIXME: checksum is to be also checked
                         //unsigned long old_checksum = buf[ETH_HLEN+8+32 + 2]*256 + buf[ETH_HLEN+8+32 + 3];
                         uint32_t new_checksum = 0;
                         buf[ETH_HLEN+8+32 + 2] = 0;
