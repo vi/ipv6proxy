@@ -128,7 +128,7 @@ int main(int argc, char* argv[]) {
                 unsigned char *dstmac = buf ;
                 unsigned char *srcmac = buf + 6;
                 
-                unsigned char icmp_type = buf[ETH_HLEN+8+32];
+                unsigned char icmp_type = buf[ETH_HLEN+8+32]; (void)icmp_type;
                 debug_print(debug_mode, buf, received_length, current_interface->name);
                 
                 

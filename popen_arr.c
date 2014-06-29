@@ -117,6 +117,7 @@ FILE* popen_arr(const char* program,
 {
     FILE* f = NULL;
     int ret = popen2_impl(&f, program, argv, NULL, 1, mode);
+    (void)ret;
     return f;
 }
     
