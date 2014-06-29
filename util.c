@@ -213,10 +213,9 @@ void debug_print(const char* debug_print_mode, unsigned const char *buf, int rec
     }
 }
 
-void fixup_icmpv6_checksum(unsigned char *buf, int totallen) {
+uint32_t calculate_icmpv6_checksum(unsigned char *buf, int totallen) {
     DECALRE_srcip_dstip_srcmac_dstmac_FROM_buf;
     
-    //unsigned long old_checksum = buf[ETH_HLEN+8+32 + 2]*256 + buf[ETH_HLEN+8+32 + 3];
     uint32_t new_checksum = 0;
     buf[ETH_HLEN+8+32 + 2] = 0;
     buf[ETH_HLEN+8+32 + 3] = 0;
@@ -229,11 +228,20 @@ void fixup_icmpv6_checksum(unsigned char *buf, int totallen) {
     checksum("\x00\x00\x00\x3A",   4,   &new_checksum, 0); // next header type
     checksum(buf + ETH_HLEN+8+32,  len, &new_checksum, 1);
     
+    return new_checksum;    
+}
+
+int verify_and_fix_icmpv6_checksum(unsigned char *buf, int totallen) {
+    unsigned long old_checksum = buf[ETH_HLEN+8+32 + 2]*256 + buf[ETH_HLEN+8+32 + 3];
+    
+    uint32_t new_checksum = calculate_icmpv6_checksum(buf, totallen);
+   
     buf[ETH_HLEN+8+32 + 2] = new_checksum>>8;
     buf[ETH_HLEN+8+32 + 3] = new_checksum&0xFF;
     
-    //printf("oc=%04lx nc=%04x ",old_checksum, new_checksum);
+    return (new_checksum == old_checksum) ? 0 : -1;
 }
+
 
 /*****************************************************************************
  * open_packet_socket

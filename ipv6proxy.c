@@ -122,6 +122,14 @@ int main(int argc, char* argv[]) {
                 }
                 
                 int received_length = ret;
+                if (received_length < ETH_HLEN+40+4) {
+                    fprintf(stderr, "Short packet received...\n");
+                    continue;
+                }
+                if (verify_and_fix_icmpv6_checksum(buf, received_length) == -1) {
+                    fprintf(stderr, "ICMPv6 checksum fail\n");
+                    continue;
+                }
                 
                 unsigned char *srcip = buf + ETH_HLEN+8;
                 unsigned char *dstip = buf + ETH_HLEN+8+16;
@@ -239,7 +247,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     
-                    fixup_icmpv6_checksum(buf, received_length);
+                    (void)verify_and_fix_icmpv6_checksum(buf, received_length);
                     
                     
                     again:

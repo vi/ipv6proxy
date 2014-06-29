@@ -22,5 +22,6 @@ int del_ipv6_route(int sock_fd, struct in6_addr *addr,  int prefix_len, int metr
 void debug_print(const char* debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name);
 
 
-// Fix IPCMv6 checksum; IPv6 packet is expected to be encapsupated in simple Ethernet frame
-void fixup_icmpv6_checksum(unsigned char *buf, int totallen);
+// Fix and/or verify IPCMv6 checksum; IPv6 packet is expected to be encapsupated in simple Ethernet frame
+// -1 is fail, 0 is OK
+int verify_and_fix_icmpv6_checksum(unsigned char *buf, int totallen);

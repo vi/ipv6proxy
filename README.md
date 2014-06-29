@@ -58,5 +58,4 @@ The project is eary and hacky. There are following known problems:
 * You need to set up `/proc/sys/net/ipv6` settings beforehand;
 * Interfaces get ALLMULTI flag set at startup, but not changed back on finishing;
 * Usage of external script to manage routes;
-* ICMPv6 checksum always got fixed, but is never checked;
 * Not scalable approach in general.
