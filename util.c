@@ -329,7 +329,7 @@ int open_packet_socket(int ifIndex)
  *  savemacaddresshere - save 6 bytes of MAC address here
  *
  * Return:
- *  The previous value of the ALLMULTI flag, prior to change.
+ *  The previous value of the ALLMULTI flag, prior to change, 0 or 1
  * 
  * Notes:
  *  Miserere mihi peccatori.
@@ -342,28 +342,35 @@ int setup_interface(const char *ifname, unsigned int allmulti_state, unsigned ch
     int skfd;
     int current;
     
-    skfd = socket(AF_INET, SOCK_DGRAM, 0);
+    skfd = socket(AF_INET6, SOCK_DGRAM, 0);
     
     strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+    
+    
+    
+    if (savemacaddresshere) {
+        if (ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0)
+        {
+            perror("ioctl SIOCGIFHWADDR");
+            exit(1);
+        }
+        memcpy(savemacaddresshere, &ifr.ifr_hwaddr.sa_data, 6);
+    }
+    
     // Get current flags, etc.
     if (ioctl(skfd, SIOCGIFFLAGS, &ifr) < 0)
     {
         perror("ioctl SIOCGIFFLAGS");
         exit(1);
     }
-    
-    if (ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0)
-    {
-        perror("ioctl SIOCGIFHWADDR");
-        exit(1);
-    }
 
     current = ifr.ifr_flags;
-    if (savemacaddresshere) {
-        memcpy(savemacaddresshere, &ifr.ifr_hwaddr.sa_data, 6);
-    }
     
     if (! (options & NOALLMULTI)) {
+        if (debug_mode & D_INIT && (!!allmulti_state != !!(ifr.ifr_flags&IFF_ALLMULTI))) {
+            fprintf(stderr, "+ ip link set %s allmulticast %s\n", ifname, allmulti_state?"on":"off");
+        }
+        
         if (allmulti_state)
         {
             ifr.ifr_flags |= IFF_ALLMULTI;
@@ -387,5 +394,6 @@ int setup_interface(const char *ifname, unsigned int allmulti_state, unsigned ch
 
 sinfulexit:
     close(skfd);
-    return (current || IFF_ALLMULTI);
+    //fprintf(stderr, "%s %d\n", ifname, current);
+    return !!(current & IFF_ALLMULTI);
 }

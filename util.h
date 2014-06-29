@@ -36,6 +36,7 @@ enum myflags_t {
     NORESTORE = 16
 };
 extern enum myflags_t options;
+extern enum debugmode_t debug_mode;
 
 void debug_print(enum debugmode_t debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name);
 
