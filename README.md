@@ -14,11 +14,12 @@ Usage
 
 Imagine you have working `eth0` with auto-configured IPv6. You want to extend it to `wlan0`.
 
-You:
+    PATH=$PATH:/path/to/ipv6proxy IPV6PROXY_DEBUG=ism ipv6proxy eth0 wlan0 
 
-* Force eth0 to stay auto-configured even though becoming a router: `echo 2 > /proc/sys/net/ipv6/conf/eth0/accept_ra`
-* Turn on forwarding `echo 1 > /proc/sys/net/ipv6/conf/eth0/forwarding && echo 1 > /proc/sys/net/ipv6/conf/wlan0/forwarding`
-* Start the program: `PATH=$PATH:/path/to/ipv6proxy ipv6proxy eth0 wlan0`
+This command with start ipv6proxy in default mode (it will set up `forwarding` and `accept_ra` values if necessary).
+PATH will allow ipv6proxy to find its scripts for adding or removing routes. Upon terminationg ipv6proxy tries to revert everything back.
+
+IPV6PROXY_DEBUG is only for making it to print more messages.
 
 What the program does
 ---
@@ -27,13 +28,23 @@ Additionally, special `/128` routes get added as necessary.
 
 Non-ICMPv6 traffic gets forwarded by Linux as usual.
 
-Supposing you have already working auto-configured setup at `eth0` and one remote node waiting to be configured at `wlan0`, ipv6proxy should print something like this:
+Supposing you have already working auto-configured setup at `eth0` and one remote node waiting to be configured at `wlan0`, ipv6proxy should print something like this, if started by command line above:
+
 
 ```
++ echo 2 > /proc/sys/net/ipv6/conf/eth0/accept_ra
+    (Force eth0 to stay auto-configured even though becoming a router)
++ echo 1 > /proc/sys/net/ipv6/conf/eth0/forwarding
+    (Turn on forwarding)
++ ip link set eth0 allmulticast on
+    (Turn on allmulticast mode)
++ echo 1 > /proc/sys/net/ipv6/conf/wlan0/forwarding
++ ip link set wlan0 allmulticast on
+    (if accept_ra is 0, it is not changed by ipv6proxy)
 FE8000000000000000C50AFFFEC19433:02C50AC19433 -> FF020000000000000000000000000001:333300000001 eth0(RouAdv)
 Adding entry: FE8000000000000000C50AFFFEC19433 at eth0 mac 02C50AC19433
-    (ipv6proxy saw a router advertisment on eth0 and forwarded it to wlan0) 
-    (   from appropriate MAC address instead of 02C50AC19433)
+    (ipv6proxy saw a router advertisment on eth0 and forwarded it to wlan0)
+    (   ,from the appropriate MAC address instead of 02C50AC19433)
 00000000000000000000000000000000:FEC9D280DFA5 -> FF0200000000000000000001FF80DFA5:3333FF80DFA5 wlan0(NeigSol)
 Adding entry: 00000000000000000000000000000000 at wlan0 mac FEC9D280DFA5
     (the node at wlan0 is booting up IPv6, checking for address duplicates)
@@ -54,7 +65,5 @@ The project is eary and hacky. There are following known problems:
 
 * Ping replies get duplicated;
 * Source MAC address substitution code is hacky. Some special source MAC addresses may fail (it does search&replace MAC mentions though the whole packet and fix up ICMPv6 checksum afterwards).
-* You need to set up `/proc/sys/net/ipv6` settings beforehand;
-* Interfaces get ALLMULTI flag set at startup, but not changed back on finishing;
 * Usage of external script to manage routes;
 * Not scalable approach in general.
