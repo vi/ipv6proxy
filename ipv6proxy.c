@@ -33,10 +33,11 @@ struct myinterface {
 };
 
 
-#define MAXIFS 128
+#define MAX_INTERFACES 128
+#define MAX_IPMAP_SIZE 4096
 
-struct myinterface ifs[MAXIFS];
-int nifs;
+struct myinterface interfaces[MAX_INTERFACES];
+int n_interfaces;
 
 
 struct ip_map_entry {
@@ -46,10 +47,10 @@ struct ip_map_entry {
     int routeadded;
 };
 
-#define MAXMAPSIZE 4096
 
-struct ip_map_entry ip_map[MAXMAPSIZE];
-int ip_map_size = 0;
+struct ip_map_entry ip_map[MAX_IPMAP_SIZE];
+int n_ip_map = 0;
+
 
 unsigned char buf[4096];
 
@@ -61,12 +62,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    nifs = argc-1;
+    n_interfaces = argc-1;
     
     int ret;
     int i;
     int fd_conf = socket( AF_INET6, SOCK_RAW, 58 /* ICMPv6 */ );
-    for(i=0; i<nifs; ++i){
+    for(i=0; i<n_interfaces; ++i){
         if(fd_conf==-1) { perror("socket"); return 1; }
         
     
@@ -75,7 +76,7 @@ int main(int argc, char* argv[]) {
         int ifindex = my_if_nametoindex(fd_conf, devname);
         if (ifindex == -1) { perror("get_interface_index"); };
         
-        struct myinterface *ii = &ifs[i];
+        struct myinterface *ii = &interfaces[i];
         
         ii->name = devname;
         ii->ifindex = ifindex;
@@ -89,8 +90,8 @@ int main(int argc, char* argv[]) {
         fd_set rfds;
         int maxfd = 0;
         FD_ZERO(&rfds);
-        for (i=0; i<nifs; ++i) {
-            int fd = ifs[i].packetsock_fd;
+        for (i=0; i<n_interfaces; ++i) {
+            int fd = interfaces[i].packetsock_fd;
             if (fd!=-1) {
                 FD_SET(fd, &rfds);
                 if(maxfd < fd) maxfd=fd;
@@ -105,15 +106,15 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         
-        for(i=0; i<nifs; ++i) {
-            int fd = ifs[i].packetsock_fd;
+        for(i=0; i<n_interfaces; ++i) {
+            int fd = interfaces[i].packetsock_fd;
             if (fd!=-1 && FD_ISSET(fd, &rfds)) {
                 ret = recv(fd, buf, sizeof buf, 0);
                 if(ret<0) {
                     if(errno==EINTR || errno==EAGAIN) continue;
                     perror("recv");
-                    close(ifs[i].packetsock_fd);
-                    ifs[i].packetsock_fd = -1;
+                    close(interfaces[i].packetsock_fd);
+                    interfaces[i].packetsock_fd = -1;
                 }
                 
                 unsigned char *srcip = buf + ETH_HLEN+8;
@@ -163,15 +164,15 @@ int main(int argc, char* argv[]) {
                     printhex(dstip,16,stdout); fprintf(stdout, ":"); printhex(dstmac,6,stdout);
                     
                     if (itn) {
-                        fprintf(stdout, " %s(%s)\n", ifs[i].name, itn);
+                        fprintf(stdout, " %s(%s)\n", interfaces[i].name, itn);
                     } else {
-                        fprintf(stdout, " %s(%d)\n", ifs[i].name, (int)icmp_type);
+                        fprintf(stdout, " %s(%d)\n", interfaces[i].name, (int)icmp_type);
                     }
                     
                     fflush(stdout);
                 }
                 if (do_debug_print) {
-                    fprintf(stdout, "%12s ",ifs[i].name);
+                    fprintf(stdout, "%12s ",interfaces[i].name);
                     int i;
                     for(i=0; i<ret; ++i) {
                         if (i==6 || i==12 || 
@@ -206,12 +207,12 @@ int main(int argc, char* argv[]) {
                 }
                 //fprintf(stderr, ".\n");
                 
-                if(! !memcmp(buf+0, ifs[i].macaddr, 6)) {
+                if(! !memcmp(buf+0, interfaces[i].macaddr, 6)) {
                     // packet is being sent to somewhere
                 }
                 
                 
-                for (j=0; j<ip_map_size; ++j) {
+                for (j=0; j<n_ip_map; ++j) {
                     if(!memcmp(ip_map[j].ip, srcip, 16)) {
                         if (! !memcmp(ip_map[j].mac, srcmac, 6)) {
                             fprintf(stderr, "Updating mac for ");
@@ -224,7 +225,7 @@ int main(int argc, char* argv[]) {
                         if (ip_map[j].ifindex != i) {
                             fprintf(stderr, "Updating network interface for ");
                                 printhex(srcip, 16, stderr);
-                            fprintf(stderr, " to %s\n", ifs[i].name);
+                            fprintf(stderr, " to %s\n", interfaces[i].name);
                             ip_map[j].ifindex = i;
                         }
                         //if (icmp_type == 136) {
@@ -233,7 +234,7 @@ int main(int argc, char* argv[]) {
                                 ip_map[j].routeadded = 1;
                                 fprintf(stderr, "Adding a route for ");
                                     printhex(srcip, 16, stderr);
-                                int rret = add_ipv6_route(fd_conf, (struct in6_addr *)srcip, 128, 1, ifs[i].ifindex);
+                                int rret = add_ipv6_route(fd_conf, (struct in6_addr *)srcip, 128, 1, interfaces[i].ifindex);
                                 if (rret==-1) fprintf(stderr, " (fail)");
                                 fprintf(stderr, "\n");
                             }*/
@@ -241,19 +242,19 @@ int main(int argc, char* argv[]) {
                         break;
                     }
                 }
-                if (j==ip_map_size) {
+                if (j==n_ip_map) {
                     // not found
-                    if (ip_map_size == MAXMAPSIZE) {
+                    if (n_ip_map == MAX_IPMAP_SIZE) {
                         // evict random entry
-                        j = rand() % MAXMAPSIZE;
+                        j = rand() % MAX_IPMAP_SIZE;
                         fprintf(stderr, "Evicting entry: ");
                             printhex(ip_map[j].ip, 16, stderr);
-                        fprintf(stderr, " at %s mac ", ifs[ip_map[j].ifindex].name);
+                        fprintf(stderr, " at %s mac ", interfaces[ip_map[j].ifindex].name);
                             printhex(ip_map[j].mac, 6, stderr);
                         fprintf(stderr, "\n");
                     } else {
                         // add new entry
-                        ++ip_map_size;
+                        ++n_ip_map;
                     }
                     
                     ip_map[j].ifindex = i;
@@ -263,22 +264,22 @@ int main(int argc, char* argv[]) {
                     
                     fprintf(stderr, "Adding entry: ");
                         printhex(ip_map[j].ip, 16, stderr);
-                    fprintf(stderr, " at %s mac ", ifs[ip_map[j].ifindex].name);
+                    fprintf(stderr, " at %s mac ", interfaces[ip_map[j].ifindex].name);
                         printhex(ip_map[j].mac, 6, stderr);
                     
                     //if (icmp_type == 136) {
                         // Neighbour advertisment => add explicit route
-                    //     add_ipv6_route(fd_conf, (struct in6_addr *)srcip, 128, 1, ifs[i].ifindex);
+                    //     add_ipv6_route(fd_conf, (struct in6_addr *)srcip, 128, 1, interfaces[i].ifindex);
                     //    ip_map[j].routeadded = 1;
                      //   fprintf(stderr, " with a route");
                     //}
                     fprintf(stderr, "\n");
-                    maybe_add_route(srcip, ifs[i].name);
+                    maybe_add_route(srcip, interfaces[i].name);
                 }
                 
                 
                 // If we know the MAC for this destination IP, use it
-                for (j=0; j<ip_map_size; ++j) {
+                for (j=0; j<n_ip_map; ++j) {
                     if(!memcmp(ip_map[j].ip, dstip, 16)) {
                         memcpy(dstmac, ip_map[j].mac, 6);
                         break;
@@ -286,15 +287,15 @@ int main(int argc, char* argv[]) {
                 }
                 
                 // TODO: send only to appropriate IF
-                for (j=0; j < nifs; ++j) {
+                for (j=0; j < n_interfaces; ++j) {
                     if (i==j) continue;
-                    if (ifs[j].packetsock_fd == -1) continue;
+                    if (interfaces[j].packetsock_fd == -1) continue;
                     
                     // substitude all mentions of source MAC address to new, our source address
                     {
                         int k;
                         for(k=0; k<nummentions; ++k) {
-                            memcpy(buf+mac_mentions_indexes[k], ifs[j].macaddr, 6);
+                            memcpy(buf+mac_mentions_indexes[k], interfaces[j].macaddr, 6);
                         }
                     }
                     // fixup the checksum
@@ -319,17 +320,17 @@ int main(int argc, char* argv[]) {
                     }
                     
                     again:
-                    ret = send(ifs[j].packetsock_fd, buf, ret, 0);
+                    ret = send(interfaces[j].packetsock_fd, buf, ret, 0);
                     if (ret==-1) {
                         if(errno==EINTR || errno==EAGAIN) goto again;
                         perror("send");
-                        close(ifs[j].packetsock_fd);
-                        ifs[j].packetsock_fd=-1;
+                        close(interfaces[j].packetsock_fd);
+                        interfaces[j].packetsock_fd=-1;
                     }
                 }
                 
             } // if FD_ISSET
-        } // for nifs
+        } // for n_interfaces
         usleep(1000);
     } // for(;;)
 
