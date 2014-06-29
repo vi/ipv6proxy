@@ -28,6 +28,15 @@ enum debugmode_t {
 };
 
 
+enum myflags_t {
+    NOALLMULTI = 1,
+    NOROUTES= 2,
+    NOFORWARDING = 4,
+    NOACCEPTRA = 8,
+    NORESTORE = 16
+};
+extern enum myflags_t options;
+
 void debug_print(enum debugmode_t debug_print_mode, unsigned const char *buf, int received_length, const char* current_interface_name);
 
 

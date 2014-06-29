@@ -62,14 +62,6 @@ static void signal_handler() {
     exit_flag = 1;
 }
 
-enum myflags_t {
-    NOALLMUTLI = 1,
-    NOROUTES= 2,
-    NOFORWARDING = 4,
-    NOACCEPTRA = 8,
-    NORESTORE = 16
-};
-
 enum myflags_t options = 0;
 
 int main(int argc, char* argv[]) {
@@ -98,7 +90,7 @@ int main(int argc, char* argv[]) {
     if(getenv("IPV6PROXY_PROCROOT")) procsysnetipv6conf=getenv("IPV6PROXY_PROCROOT");
     if(getenv("IPV6PROXY_OPTIONS")) {
         const char* o = getenv("IPV6PROXY_OPTIONS");
-        if(strchr(o, 'M')) options |= NOALLMUTLI;
+        if(strchr(o, 'M')) options |= NOALLMULTI;
         if(strchr(o, 'R')) options |= NOROUTES;
         if(strchr(o, 'F')) options |= NOFORWARDING;
         if(strchr(o, 'A')) options |= NOACCEPTRA;
@@ -314,6 +306,7 @@ int main(int argc, char* argv[]) {
         usleep(1000);
     } // for(;;)
     
+    if (options & NORESTORE) return 0;
     // cleanup: remove routes we have added and restore ALLMULTI statuses
     
     // remove routes

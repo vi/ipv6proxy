@@ -122,8 +122,9 @@ void checksum (const void * buffer, int bytes, uint32_t *total, int finalize) {
 
 
 void call_route_script(const char* script_name, const unsigned char *srcip, const char *ifname) {
-    char ip6buf[16*2+16];
+    if (options & NOROUTES) return;
     
+    char ip6buf[16*2+16];
     render_hex(ip6buf, sizeof ip6buf, srcip, 16, 1);
     
     const char* argv[] = {script_name, ip6buf, ifname, NULL};
@@ -362,24 +363,26 @@ int setup_interface(const char *ifname, unsigned int allmulti_state, unsigned ch
         memcpy(savemacaddresshere, &ifr.ifr_hwaddr.sa_data, 6);
     }
     
-    if (allmulti_state)
-    {
-        ifr.ifr_flags |= IFF_ALLMULTI;
-        if (ifr.ifr_flags == current)
+    if (! (options & NOALLMULTI)) {
+        if (allmulti_state)
         {
-            // Already set
-            goto sinfulexit;;
+            ifr.ifr_flags |= IFF_ALLMULTI;
+            if (ifr.ifr_flags == current)
+            {
+                // Already set
+                goto sinfulexit;;
+            }
         }
-    }
-    else
-    {
-        ifr.ifr_flags &= ~IFF_ALLMULTI;
-    }
+        else
+        {
+            ifr.ifr_flags &= ~IFF_ALLMULTI;
+        }
     
-    if (ioctl(skfd, SIOCSIFFLAGS, &ifr) < 0)
-    {
-        perror("ioctl SIOCSIFFLAGS (+IFF_ALLMULTI)");
-        exit(1);
+        if (ioctl(skfd, SIOCSIFFLAGS, &ifr) < 0)
+        {
+            perror("ioctl SIOCSIFFLAGS (+IFF_ALLMULTI)");
+            exit(1);
+        }
     }
 
 sinfulexit:
