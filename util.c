@@ -92,7 +92,7 @@ void printhex(const unsigned char* buf, int n, FILE* f) {
 }
 void printipv6(const unsigned char* ipv6, FILE* f) {
     char tmpbuf[64];
-    render_hex(tmpbuf, sizeof tmpbuf, ipv6, 16, 0);
+    render_hex(tmpbuf, sizeof tmpbuf, ipv6, 16, 1);
     fprintf(f, "%s", tmpbuf);
 }
 
