@@ -289,27 +289,23 @@ int open_packet_socket(int ifIndex)
 
 
 /*****************************************************************************
- * if_allmulti
- *      Called during startup and shutdown. Set/clear allmulti
- *      as required.
- *
  * Inputs:
  *  ifname is interface name
- *  state: 1-> Set (or confirm) flag is enabled
- *  state: 0-> Set flag to unset condition.
+ *  allmulti_state: 1-> Set (or confirm) flag is enabled
+ *  allmulti_state: 0-> Set flag to unset condition.
  *
  * Outputs:
  *  savemacaddresshere - save 6 bytes of MAC address here
  *
  * Return:
- *  The previous value of the flag, prior to change.
+ *  The previous value of the ALLMULTI flag, prior to change.
  * 
  * Notes:
  *  Miserere mihi peccatori.
  * 
- *  This function is based on the one from [npd6](code.google.com/p/npd6/)
+ *  This function is based on if_allmulti from [npd6](code.google.com/p/npd6/)
  */
-int if_allmulti(const char *ifname, unsigned int state, unsigned char* savemacaddresshere)
+int setup_interface(const char *ifname, unsigned int allmulti_state, unsigned char* savemacaddresshere)
 {
     struct ifreq    ifr;
     int skfd;
@@ -336,7 +332,7 @@ int if_allmulti(const char *ifname, unsigned int state, unsigned char* savemacad
         memcpy(savemacaddresshere, &ifr.ifr_hwaddr.sa_data, 6);
     }
     
-    if (state)
+    if (allmulti_state)
     {
         ifr.ifr_flags |= IFF_ALLMULTI;
         if (ifr.ifr_flags == current)

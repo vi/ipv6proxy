@@ -8,8 +8,7 @@ void printipv6(const unsigned char* ipv6, FILE* f);
 
 void checksum (void * buffer, int bytes, uint32_t *total, int finalize);
 
-// to be refactored
-int if_allmulti(const char *ifname, unsigned int state, unsigned char *savemacaddrhere);
+int setup_interface(const char *ifname, unsigned int allmulti_state, unsigned char *savemacaddrhere);
 
 int open_packet_socket(int ifIndex);
 

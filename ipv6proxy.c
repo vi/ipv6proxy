@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
         
         ii->name = devname;
         ii->ifindex = ifindex;
-        ii->prevallmulti = if_allmulti(devname, 1, ii->macaddr);
+        ii->prevallmulti = setup_interface(devname, 1, ii->macaddr);
         ii->packetsock_fd = open_packet_socket(ifindex);
         if(ii->packetsock_fd < 0) return 1;
     }
