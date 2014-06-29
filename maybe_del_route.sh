@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 IP="$1"
 IF="$2"

@@ -26,6 +26,7 @@
 
 #include "util.h"
 #include "popen_arr.h"
+#include "scripts.h"
 
 int ipv6_route_op(int op, int sock_fd, struct in6_addr *addr,  int prefix_len, int metric, int ifindex) {
     struct in6_rtmsg rt;
@@ -121,13 +122,13 @@ void checksum (const void * buffer, int bytes, uint32_t *total, int finalize) {
 }
 
 
-void call_route_script(const char* script_name, const unsigned char *srcip, const char *ifname) {
+void call_route_script(const char* script_code, const unsigned char *srcip, const char *ifname) {
     if (options & NOROUTES) return;
     
     char ip6buf[16*2+16];
     render_hex(ip6buf, sizeof ip6buf, srcip, 16, 1);
     
-    const char* argv[] = {script_name, ip6buf, ifname, NULL};
+    const char* argv[] = {"sh", "-c", script_code, "--", ip6buf, ifname, NULL};
     int pid = popen2_arr_p(NULL, argv[0], argv, NULL, "");
     int ret;
     int status;
@@ -135,10 +136,10 @@ void call_route_script(const char* script_name, const unsigned char *srcip, cons
 }
 
 void maybe_add_route(const unsigned char *srcip, const char *ifname) {
-    return call_route_script("maybe_add_route", srcip, ifname);
+    return call_route_script((const char*)script_maybe_add_route, srcip, ifname);
 }
 void maybe_del_route(const unsigned char *srcip, const char *ifname) {
-    return call_route_script("maybe_del_route", srcip, ifname);
+    return call_route_script((const char*)script_maybe_del_route, srcip, ifname);
 }
 
 #define DECALRE_srcip_dstip_srcmac_dstmac_FROM_buf \

@@ -1,2 +1,3 @@
 *.o
 ipv6proxy
+scripts.c
