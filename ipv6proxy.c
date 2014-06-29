@@ -17,9 +17,6 @@
 
 #include "util.h"
 
-int do_debug_print = 0;
-int do_short_print = 1;
-
 #define ETH_HLEN  14
 
 
@@ -53,13 +50,19 @@ int n_ip_map = 0;
 
 unsigned char buf[4096];
 
+const char *debug_mode = "";
+
 
 int main(int argc, char* argv[]) {
     
     if(argc<2 || !strcmp(argv[1], "--help")) {
         fprintf(stderr, "Usage: ipv6proxy eth0 wlan0 ...\n");
+        fprintf(stderr, "Environtment variables\n");
+        fprintf(stderr, "    IPV6PROXY_DEBUG=[s][d][m] - output short debug info, packet dumps and ip_map operations respectively\n");
         return 1;
     }
+    
+    if(getenv("IPV6PROXY_DEBUG")) debug_mode=getenv("IPV6PROXY_DEBUG");
     
     n_interfaces = argc-1;
     
@@ -154,11 +157,13 @@ int main(int argc, char* argv[]) {
                     struct ip_map_entry *ipmap_entry = &ip_map[j];
                     if(!memcmp(ipmap_entry->ip, srcip, 16)) {
                         if (! !memcmp(ipmap_entry->mac, srcmac, 6)) {
-                            fprintf(stderr, "Updating mac for ");
-                                printhex(srcip, 16, stderr);
-                            fprintf(stderr, " to ");
-                                printhex(srcmac, 6, stderr);
-                            fprintf(stderr, "\n");
+                            if (strchr(debug_mode, 'm')) {
+                                fprintf(stderr, "Updating mac for ");
+                                    printhex(srcip, 16, stderr);
+                                fprintf(stderr, " to ");
+                                    printhex(srcmac, 6, stderr);
+                                fprintf(stderr, "\n");
+                            }
                             memcpy(ipmap_entry->mac, srcmac, 6);
                         }
                         
@@ -166,9 +171,11 @@ int main(int argc, char* argv[]) {
                         maybe_add_route(srcip, current_interface->name);
                         
                         if (ipmap_entry->ifindex != i) {
-                            fprintf(stderr, "Updating network interface for ");
-                                printhex(srcip, 16, stderr);
-                            fprintf(stderr, " to %s\n", current_interface->name);
+                            if (strchr(debug_mode, 'm')) {
+                                fprintf(stderr, "Updating network interface for ");
+                                    printhex(srcip, 16, stderr);
+                                fprintf(stderr, " to %s\n", current_interface->name);
+                            }
                             ipmap_entry->ifindex = i;
                         }
                         break;
@@ -181,11 +188,13 @@ int main(int argc, char* argv[]) {
                         j = rand() % MAX_IPMAP_SIZE;
                         struct ip_map_entry *evicted_ipmap_entry = &ip_map[j];
                         
-                        fprintf(stderr, "Evicting entry: ");
-                            printipv6(evicted_ipmap_entry->ip, stderr);
-                        fprintf(stderr, " at %s mac ", interfaces[evicted_ipmap_entry->ifindex].name);
-                            printhex(evicted_ipmap_entry->mac, 6, stderr);
-                        fprintf(stderr, "\n");
+                        if (strchr(debug_mode, 'm')) {
+                            fprintf(stderr, "Evicting entry: ");
+                                printipv6(evicted_ipmap_entry->ip, stderr);
+                            fprintf(stderr, " at %s mac ", interfaces[evicted_ipmap_entry->ifindex].name);
+                                printhex(evicted_ipmap_entry->mac, 6, stderr);
+                            fprintf(stderr, "\n");
+                        }
                         maybe_del_route(evicted_ipmap_entry->ip, interfaces[evicted_ipmap_entry->ifindex].name);
                     } else {
                         // add new entry
@@ -197,12 +206,13 @@ int main(int argc, char* argv[]) {
                     memcpy(new_ipmap_entry->mac, srcmac, 6);
                     memcpy(new_ipmap_entry->ip, srcip, 16);
                     
-                    fprintf(stderr, "Added entry to map: ");
-                        printipv6(new_ipmap_entry->ip, stderr);
-                    fprintf(stderr, " at %s mac ", current_interface->name);
-                        printhex(new_ipmap_entry->mac, 6, stderr);
-                    
-                    fprintf(stderr, "\n");
+                    if (strchr(debug_mode, 'm')) {
+                        fprintf(stderr, "Added entry to map: ");
+                            printipv6(new_ipmap_entry->ip, stderr);
+                        fprintf(stderr, " at %s mac ", current_interface->name);
+                            printhex(new_ipmap_entry->mac, 6, stderr);
+                        fprintf(stderr, "\n");
+                    }
                     maybe_add_route(srcip, current_interface->name);
                 }
                 
