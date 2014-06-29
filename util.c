@@ -185,9 +185,9 @@ void debug_print(const char* debug_print_mode, unsigned const char *buf, int rec
             case 155: itn="RPLConMsg"; break;
         }
         
-        printipv6(srcip,stdout); fprintf(stdout, "@"); printhex(srcmac,6,stdout);
+        printipv6(srcip,stdout); fprintf(stdout, " @ "); printhex(srcmac,6,stdout);
         fprintf(stdout, " -> ");
-        printipv6(dstip,stdout); fprintf(stdout, "@"); printhex(dstmac,6,stdout);
+        printipv6(dstip,stdout); fprintf(stdout, " @ "); printhex(dstmac,6,stdout);
         
         if (itn) {
             fprintf(stdout, " %s(%s)\n", current_interface_name, itn);
