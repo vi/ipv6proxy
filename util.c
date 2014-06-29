@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
-
+#include <assert.h>
 
 #include <linux/if_ether.h>
 #include <linux/filter.h>
@@ -73,11 +73,27 @@ int my_if_nametoindex(int sock_fd, const char* devname) {
 	return ifr.ifr_ifindex;
 }
 
-void printhex(const unsigned char* buf, int n, FILE* f) {
+void render_hex(char* str, int strlen, const unsigned char* buf, int n, int as_ipv6_address) {
+    char* p = str;
     int i;
-    for(i=0; i<n; ++i) {
-        fprintf(f, "%02X", (int)buf[i]);
+    for (i=0; i<n; ++i) {
+        if(as_ipv6_address && i>0 && i%2==0) *p++ = ':';
+        sprintf(p, "%02x", (int)buf[i]);
+        p+=2;
     }
+    assert(p-str < strlen);
+    *p=0;
+}
+
+void printhex(const unsigned char* buf, int n, FILE* f) {
+    char tmpbuf[512];
+    render_hex(tmpbuf, sizeof tmpbuf, buf, n, 0);
+    fprintf(f, "%s", tmpbuf);
+}
+void printipv6(const unsigned char* ipv6, FILE* f) {
+    char tmpbuf[64];
+    render_hex(tmpbuf, sizeof tmpbuf, ipv6, 16, 0);
+    fprintf(f, "%s", tmpbuf);
 }
 
 // based on http://stackoverflow.com/a/14937171/266720
@@ -107,14 +123,8 @@ void checksum (void * buffer, int bytes, uint32_t *total, int finalize) {
 
 void call_route_script(const char* script_name, const unsigned char *srcip, const char *ifname) {
     char ip6buf[16*2+16];
-    char* p = ip6buf;
-    int i;
-    for (i=0; i<16; ++i) {
-        if(i>0 && i%2==0) *p++ = ':';
-        sprintf(p, "%02x", srcip[i]);
-        p+=2;
-    }
-    *p=0;
+    
+    render_hex(ip6buf, sizeof ip6buf, srcip, 16, 1);
     
     const char* argv[] = {script_name, ip6buf, ifname, NULL};
     int pid = popen2_arr_p(NULL, argv[0], argv, NULL, "");
@@ -174,9 +184,9 @@ void debug_print(const char* debug_print_mode, unsigned const char *buf, int rec
             case 155: itn="RPLConMsg"; break;
         }
         
-        printhex(srcip,16,stdout); fprintf(stdout, ":"); printhex(srcmac,6,stdout);
+        printipv6(srcip,stdout); fprintf(stdout, "@"); printhex(srcmac,6,stdout);
         fprintf(stdout, " -> ");
-        printhex(dstip,16,stdout); fprintf(stdout, ":"); printhex(dstmac,6,stdout);
+        printipv6(dstip,stdout); fprintf(stdout, "@"); printhex(dstmac,6,stdout);
         
         if (itn) {
             fprintf(stdout, " %s(%s)\n", current_interface_name, itn);

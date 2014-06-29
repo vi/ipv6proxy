@@ -182,7 +182,7 @@ int main(int argc, char* argv[]) {
                         struct ip_map_entry *evicted_ipmap_entry = &ip_map[j];
                         
                         fprintf(stderr, "Evicting entry: ");
-                            printhex(evicted_ipmap_entry->ip, 16, stderr);
+                            printipv6(evicted_ipmap_entry->ip, stderr);
                         fprintf(stderr, " at %s mac ", interfaces[evicted_ipmap_entry->ifindex].name);
                             printhex(evicted_ipmap_entry->mac, 6, stderr);
                         fprintf(stderr, "\n");
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
                     memcpy(new_ipmap_entry->ip, srcip, 16);
                     
                     fprintf(stderr, "Added entry to map: ");
-                        printhex(new_ipmap_entry->ip, 16, stderr);
+                        printipv6(new_ipmap_entry->ip, stderr);
                     fprintf(stderr, " at %s mac ", current_interface->name);
                         printhex(new_ipmap_entry->mac, 6, stderr);
                     

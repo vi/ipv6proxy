@@ -4,6 +4,7 @@
 int my_if_nametoindex(int sock_fd, const char* devname);
 
 void printhex(const unsigned char* buf, int n, FILE* f);
+void printipv6(const unsigned char* ipv6, FILE* f);
 
 void checksum (void * buffer, int bytes, uint32_t *total, int finalize);
 
