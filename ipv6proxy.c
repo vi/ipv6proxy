@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <signal.h>
+
 
 #include <stdio.h>
 
@@ -52,6 +54,12 @@ unsigned char buf[4096];
 
 const char *debug_mode = "";
 
+volatile int exit_flag = 0;
+
+static void signal_handler() {
+    exit_flag = 1;
+}
+
 
 int main(int argc, char* argv[]) {
     
@@ -63,6 +71,13 @@ int main(int argc, char* argv[]) {
     }
     
     if(getenv("IPV6PROXY_DEBUG")) debug_mode=getenv("IPV6PROXY_DEBUG");
+    
+    {
+        struct sigaction sa = {{&signal_handler}};
+        sigaction(SIGINT, &sa, NULL);
+        sigaction(SIGTERM, &sa, NULL);
+    }
+
     
     n_interfaces = argc-1;
     
@@ -88,7 +103,8 @@ int main(int argc, char* argv[]) {
     }
         
     
-    for(;;) {
+    for(;!exit_flag;) {
+        
         fd_set rfds;
         int maxfd = 0;
         FD_ZERO(&rfds);
@@ -264,6 +280,23 @@ int main(int argc, char* argv[]) {
         } // for n_interfaces
         usleep(1000);
     } // for(;;)
+    
+    // cleanup: remove routes we have added and restore ALLMULTI statuses
+    
+    // remove routes
+    {
+        int j;
+        for (j=0; j<n_ip_map; ++j) {
+            struct ip_map_entry *ipmap_entry = &ip_map[j];
+            maybe_del_route(ipmap_entry->ip, interfaces[ipmap_entry->ifindex].name);
+        }
+    }
+    
+    // maybe reset ALLMULTIs
+    for(i=0; i<n_interfaces; ++i){
+        struct myinterface *ii = &interfaces[i];
+        (void)setup_interface(ii->name, ii->prevallmulti, ii->macaddr);
+    }
 
     return 0;
 }

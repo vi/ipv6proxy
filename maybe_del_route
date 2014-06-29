@@ -8,4 +8,4 @@ if [ "$IP" == "0000:0000:0000:0000:0000:0000:0000:0000" ]; then
 fi
 
 set -x
-ip -6 route del $IP/128 dev $IF
+ip -6 route del $IP/128 dev $IF metric 5
