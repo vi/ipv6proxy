@@ -217,8 +217,7 @@ int main(int argc, char* argv[]) {
                             memcpy(ip_map[j].mac, srcmac, 6);
                         }
                         
-                        // XXX
-                        // maybe_del_route(srcip, interfaces[ip_map[j].ifindex].name);
+                        maybe_del_route(srcip, interfaces[ip_map[j].ifindex].name);
                         maybe_add_route(srcip, interfaces[i].name);
                         
                         if (ip_map[j].ifindex != i) {

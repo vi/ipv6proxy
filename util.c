@@ -105,8 +105,7 @@ void checksum (void * buffer, int bytes, uint32_t *total, int finalize) {
 }
 
 
-
-void maybe_add_route(const unsigned char *srcip, const char *ifname) {
+void call_route_script(const char* script_name, const unsigned char *srcip, const char *ifname) {
     char ip6buf[16*2+16];
     char* p = ip6buf;
     int i;
@@ -117,11 +116,18 @@ void maybe_add_route(const unsigned char *srcip, const char *ifname) {
     }
     *p=0;
     
-    const char* argv[] = {"maybe_add_route", ip6buf, ifname, NULL};
+    const char* argv[] = {script_name, ip6buf, ifname, NULL};
     int pid = popen2_arr_p(NULL, argv[0], argv, NULL, "");
     int ret;
     int status;
     do { ret = waitpid(pid, &status, 0); } while(ret==-1 && (errno==EINTR || errno==EAGAIN));
+}
+
+void maybe_add_route(const unsigned char *srcip, const char *ifname) {
+    return call_route_script("maybe_add_route", srcip, ifname);
+}
+void maybe_del_route(const unsigned char *srcip, const char *ifname) {
+    return call_route_script("maybe_del_route", srcip, ifname);
 }
 
 
