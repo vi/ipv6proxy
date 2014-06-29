@@ -53,11 +53,10 @@ Hacks
 The project is eary and hacky. There are following known problems:
 
 * Ping replies get duplicated;
-* Routes get added while running the program, but are never cleaned up (removed);
+* Routes added by program does not get cleaned up on termination;
 * Source MAC address substitution code is hacky. Some special source MAC addresses may fail (it does search&replace MAC mentions though the whole packet and fix up ICMPv6 checksum afterwards).
 * You need to set up `/proc/sys/net/ipv6` settings beforehand;
 * Interfaces get ALLMULTI flag set at startup, but not changed back on finishing;
 * Usage of external script to manage routes;
 * ICMPv6 checksum always got fixed, but is never checked;
-* Unclean code, evolved in experimentation, with obsolete chunks and parts from nbd6;
 * Not scalable approach in general.
