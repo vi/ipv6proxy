@@ -7,9 +7,9 @@ scripts.c: maybe_add_route.sh maybe_del_route.sh
 	echo "#include \"scripts.h\"" > scripts.c
 
 	echo "const unsigned char script_maybe_add_route[] = {"    >> scripts.c
-	( cat maybe_add_route.sh; printf '\x00'; ) | xxd -i  >> scripts.c
+	( cat maybe_add_route.sh; /bin/printf '\x00'; ) | xxd -i  >> scripts.c
 	echo "};"    >> scripts.c
 	
 	echo "const unsigned char script_maybe_del_route[] = {"    >> scripts.c
-	( cat maybe_del_route.sh; printf '\x00'; ) | xxd -i  >> scripts.c
+	( cat maybe_del_route.sh; /bin/printf '\x00'; ) | xxd -i  >> scripts.c
 	echo "};"    >> scripts.c
